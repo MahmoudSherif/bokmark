@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>Shoebox — sort your saved stuff</title>
+<style>
+:root{
+  --paper:#F6F5F0; --card:#FFFFFF; --ink:#16181D; --ink2:#5C6066;
+  --line:#DCDAD2; --accent:#2B44C4; --accent-soft:#E8EBFA; --danger:#A93B26;
+  --s-browser:#0E6E5C; --s-messenger:#6B3FA0; --s-facebook:#1B4B9C; --s-x:#3A3D42;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;font-family:var(--sans);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+main,footer{max-width:1080px;margin:0 auto;padding:0 20px}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+button{font:inherit;cursor:pointer}
+
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;max-width:1080px;margin:0 auto;padding:22px 20px 8px}
+.wordmark{font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-.02em}
+.wordmark::after{content:"_";color:var(--accent)}
+.pill{font-family:var(--mono);font-size:11.5px;color:var(--ink2);border:1px solid var(--line);border-radius:99px;padding:4px 11px;background:var(--card);white-space:nowrap}
+.pill b{color:var(--ink);font-weight:600}
+
+.tray{margin-top:18px;border:1.5px dashed var(--line);border-radius:14px;background:var(--card);padding:36px 24px;text-align:center;transition:border-color .15s,background .15s}
+.tray.drag{border-color:var(--accent);background:var(--accent-soft)}
+.tray-title{margin:0;font-size:21px;font-weight:600;letter-spacing:-.01em}
+.tray-sub{margin:8px auto 18px;max-width:640px;color:var(--ink2);font-size:13.5px}
+.tray-note{margin:16px 0 0;font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.tray.compact{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}
+.tray.compact .tray-title{font-size:15px}
+.tray.compact .tray-sub,.tray.compact .tray-note{display:none}
+
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 15px;font-size:13.5px;font-weight:500}
+.btn:hover{border-color:var(--ink2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#000}
+.btn.danger{color:var(--danger)}
+.btn.danger:hover{border-color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:default}
+
+.log{list-style:none;margin:10px 0 0;padding:0;font-family:var(--mono);font-size:12px;color:var(--ink2)}
+.log li{padding:3px 2px;border-bottom:1px dotted var(--line)}
+.log li.err{color:var(--danger)}
+.log li b{color:var(--ink);font-weight:600}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:26px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;color:var(--ink)}
+.chip .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--ink2)}
+.chip.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.chip.total{border-style:none;background:none;padding-left:0;color:var(--ink2)}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2)}
+.field input,.field select{font:inherit;font-size:13.5px;border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--paper);color:var(--ink);min-width:0}
+.field input:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.field.grow{flex:1 1 200px}
+.checks{display:flex;gap:14px;align-items:center;padding-bottom:8px}
+.checks label{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink2);cursor:pointer}
+
+.group{margin-top:30px}
+.tab{display:inline-block;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:12px;letter-spacing:.09em;text-transform:uppercase;padding:7px 22px 6px 15px;clip-path:polygon(0 100%,0 7px,7px 0,calc(100% - 15px) 0,100% 100%);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.tab .n{opacity:.62;margin-left:9px;letter-spacing:0}
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:0 12px 12px 12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);font-weight:500;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid #EEEDE7;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FBFAF6}
+.t-title{min-width:260px;max-width:460px}
+.t-title a{color:var(--ink);text-decoration:none;font-weight:500}
+.t-title a:hover{color:var(--accent);text-decoration:underline}
+.t-title .ex{display:block;color:var(--ink2);font-size:12.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.t-num{font-family:var(--mono);font-size:12px;color:var(--ink2);white-space:nowrap}
+.stamp{font-family:var(--mono);font-size:11px;border:1px solid;border-radius:5px;padding:1.5px 7px;white-space:nowrap}
+.stamp.browser{color:var(--s-browser);border-color:var(--s-browser)}
+.stamp.messenger{color:var(--s-messenger);border-color:var(--s-messenger)}
+.stamp.facebook{color:var(--s-facebook);border-color:var(--s-facebook)}
+.stamp.x{color:var(--s-x);border-color:var(--s-x)}
+.qf{background:none;border:none;padding:0;color:inherit;font:inherit;text-decoration:underline dotted var(--line);text-underline-offset:3px}
+.qf:hover{color:var(--accent);text-decoration-color:var(--accent)}
+.more{margin:0;padding:12px 14px}
+.more button{background:none;border:none;font-family:var(--mono);font-size:12px;color:var(--accent);padding:0}
+.dupmark{color:var(--danger);font-family:var(--mono);font-size:11px;margin-left:6px}
+
+#emptyMatch{margin-top:34px;color:var(--ink2);font-family:var(--mono);font-size:13px}
+
+footer{margin:60px auto 40px;color:var(--ink2);font-size:13.5px}
+footer h2{font-size:14px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink);margin:0 0 10px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:8px}
+summary{cursor:pointer;padding:11px 14px;font-weight:500;color:var(--ink)}
+details div{padding:0 14px 13px;max-width:70ch}
+details code{font-family:var(--mono);font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.fine{font-family:var(--mono);font-size:11.5px;line-height:1.7;margin-top:22px}
+
+@media (max-width:640px){
+  th,td{padding:8px 10px}
+  .t-title{min-width:200px}
+  .bar{flex-direction:column;align-items:flex-start}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="wordmark">shoebox</div>
+  <div class="pill" id="privacyPill"><b>local only</b> · nothing you add leaves this page</div>
+</header>
+<main>
+  <section class="tray" id="tray">
+    <div>
+      <p class="tray-title">Drop your export files here</p>
+      <p class="tray-sub">Browser bookmarks (.html) · Chrome <span style="font-family:var(--mono)">Bookmarks</span> file · Facebook &amp; Messenger export (.json) · X likes / bookmarks (.js, .json)</p>
+      <button class="btn primary" id="pickBtn">Choose files</button>
+      <input type="file" id="fileInput" multiple hidden accept=".html,.htm,.json,.js,application/json,text/html,text/javascript">
+      <p class="tray-note">Files are read on your device and never uploaded. <span id="persistNote"></span></p>
+    </div>
+  </section>
+  <ul class="log" id="log" aria-live="polite"></ul>
+
+  <section class="bar" id="bar" hidden>
+    <div class="chips" id="chips"></div>
+    <div class="actions">
+      <button class="btn" id="csvBtn">Export CSV</button>
+      <button class="btn" id="xlsxBtn">Export XLSX</button>
+      <button class="btn" id="jsonBtn">Export JSON</button>
+      <button class="btn danger" id="clearBtn">Clear all data</button>
+    </div>
+  </section>
+
+  <section class="controls" id="controls" hidden>
+    <div class="field grow"><label for="q">Search</label><input id="q" type="search" placeholder="title, text, person, thread, domain…"></div>
+    <div class="field"><label for="fSource">Source</label><select id="fSource"><option value="">all</option></select></div>
+    <div class="field"><label for="fType">Type</label><select id="fType"><option value="">all</option></select></div>
+    <div class="field"><label for="fLang">Script</label><select id="fLang"><option value="">all</option></select></div>
+    <div class="field"><label for="dFrom">From</label><input id="dFrom" type="date"></div>
+    <div class="field"><label for="dTo">To</label><input id="dTo" type="date"></div>
+    <div class="field"><label for="groupBy">Group into tables by</label><select id="groupBy">
+      <option value="type" selected>type</option><option value="source">source</option>
+      <option value="domain">domain</option><option value="author">person</option>
+      <option value="origin">folder / thread</option><option value="month">month</option>
+      <option value="lang">script</option><option value="">nothing (one table)</option>
+    </select></div>
+    <div class="field"><label for="sortKey">Sort by</label><select id="sortKey">
+      <option value="date" selected>date</option><option value="title">title</option>
+      <option value="author">person</option><option value="domain">domain</option>
+    </select></div>
+    <div class="field"><label for="sortDir">Order</label><select id="sortDir">
+      <option value="desc" selected>newest first</option><option value="asc">oldest first</option>
+    </select></div>
+    <div class="checks">
+      <label><input type="checkbox" id="fDup"> duplicates only</label>
+      <label><input type="checkbox" id="fMedia"> has media</label>
+    </div>
+    <div class="field"><label>&nbsp;</label><button class="btn" id="resetBtn">Reset</button></div>
+  </section>
+
+  <section id="tables"></section>
+  <p id="emptyMatch" hidden>No items match these filters.</p>
+</main>
+
+<footer>
+  <h2>Where do I get these files?</h2>
+  <details><summary>Browser bookmarks</summary><div>
+    In Chrome, Edge, Firefox, or Safari open the bookmark manager and choose <code>Export bookmarks</code> — you get one <code>.html</code> file. Drop it here. Chrome users can also drop the raw <code>Bookmarks</code> file from the Chrome profile folder.
+  </div></details>
+  <details><summary>Facebook &amp; Messenger</summary><div>
+    On Facebook go to <code>Settings &amp; privacy → Download your information</code>, pick <b>Messages</b> and/or <b>Saved items</b>, and set the format to <b>JSON</b> (not HTML). Facebook emails you a ZIP; unzip it, then drop the <code>message_1.json</code> files (one per conversation, under <code>messages/inbox/…</code>) and <code>your_saved_items.json</code> here. You can drop many files at once. Text in any language is fixed automatically — Facebook's export garbles non-English characters, and Shoebox repairs them.
+  </div></details>
+  <details><summary>X (Twitter)</summary><div>
+    Two options. <b>Archive:</b> request <code>Settings → Your account → Download an archive of your data</code>, unzip, and drop <code>like.js</code> or <code>tweets.js</code> from the <code>data</code> folder. <b>Bookmarks:</b> X only exposes bookmarks through its paid API — if you (or a developer friend) fetch <code>GET /2/users/:id/bookmarks</code>, drop the JSON response here and it's understood.
+  </div></details>
+  <p class="fine">shoebox_ has no server, no accounts, and no analytics. The page's security policy forbids all network connections, so your data cannot be sent anywhere — you can verify this in your browser's network tab. Nothing is fetched per-item either (not even favicons), so the sites you saved never learn you're organizing them. Dead-link checking and live X sync are deliberately left out for now: both would require network access. Source code is one readable HTML file — audit it.</p>
+</footer>
+
+<script>
+/* Shoebox parsers — pure functions, no DOM required. */
+
+/* ---------- Facebook mojibake fix ----------
+   Facebook's "Download your information" JSON encodes text as UTF-8 bytes
+   written out as Latin-1 escapes. After JSON.parse, "مرحبا" looks like
+   "Ù…Ø±Ø­Ø¨Ø§". Re-pack chars <= 0xFF into bytes and decode as UTF-8. */
+function fbFixString(s) {
+  if (typeof s !== "string" || !/[\u0080-\u00ff]/.test(s)) return s;
+  for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) > 255) return s;
+  try {
+    const bytes = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (e) { return s; }
+}
+
+function fbDeepFix(v) {
+  if (typeof v === "string") return fbFixString(v);
+  if (Array.isArray(v)) return v.map(fbDeepFix);
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const k of Object.keys(v)) out[k] = fbDeepFix(v[k]);
+    return out;
+  }
+  return v;
+}
+
+/* ---------- small utilities ---------- */
+function hashId(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return ("0000000" + h.toString(16)).slice(-8) + "-" + str.length.toString(16);
+}
+
+function domainOf(url) {
+  if (!url) return "";
+  try {
+    const m = String(url).match(/^[a-z][a-z0-9+.-]*:\/\/([^\/?#]+)/i);
+    if (!m) return "";
+    return m[1].replace(/^www\./i, "").toLowerCase().split(":")[0];
+  } catch (e) { return ""; }
+}
+
+function detectScript(text) {
+  if (!text) return "";
+  let ar = 0, he = 0, cjk = 0, cy = 0, lat = 0;
+  const n = Math.min(text.length, 400);
+  for (let i = 0; i < n; i++) {
+    const c = text.charCodeAt(i);
+    if ((c >= 0x0600 && c <= 0x06ff) || (c >= 0x0750 && c <= 0x077f)) ar++;
+    else if (c >= 0x0590 && c <= 0x05ff) he++;
+    else if ((c >= 0x4e00 && c <= 0x9fff) || (c >= 0x3040 && c <= 0x30ff) || (c >= 0xac00 && c <= 0xd7af)) cjk++;
+    else if (c >= 0x0400 && c <= 0x04ff) cy++;
+    else if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122)) lat++;
+  }
+  const best = Math.max(ar, he, cjk, cy);
+  if (best >= 2 && best >= lat * 0.5) {
+    if (best === ar) return "Arabic";
+    if (best === he) return "Hebrew";
+    if (best === cjk) return "CJK";
+    return "Cyrillic";
+  }
+  if (lat >= 2) return "Latin";
+  return "";
+}
+
+function decodeEntities(s) {
+  if (!s) return "";
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, " ");
+}
+
+function clip(s, n) {
+  s = (s || "").replace(/\s+/g, " ").trim();
+  return s.length > n ? s.slice(0, n - 1) + "\u2026" : s;
+}
+
+/* ---------- unified item ----------
+   { source, type, title, url, domain, excerpt, author, origin,
+     created_at (ms|null), saved_at (ms|null), has_media, lang } */
+function makeItem(o) {
+  const it = {
+    source: o.source || "", type: o.type || "item",
+    title: clip(o.title || "", 160),
+    url: o.url || "", domain: domainOf(o.url || ""),
+    excerpt: clip(o.excerpt || "", 240),
+    author: clip(o.author || "", 80),
+    origin: clip(o.origin || "", 80),
+    created_at: Number.isFinite(o.created_at) ? o.created_at : null,
+    saved_at: Number.isFinite(o.saved_at) ? o.saved_at : null,
+    has_media: !!o.has_media,
+    lang: detectScript((o.title || "") + " " + (o.excerpt || "")),
+  };
+  if (!it.title) it.title = it.excerpt ? clip(it.excerpt, 90) : (it.url || "(untitled)");
+  it.id = hashId([it.source, it.origin, it.author, it.created_at, it.saved_at, it.url, it.excerpt.slice(0, 60), it.title.slice(0, 60)].join("|"));
+  return it;
+}
+
+/* ---------- 1. Netscape bookmarks HTML (Chrome/Firefox/Edge/Safari export) ---------- */
+function parseNetscapeHTML(text) {
+  const items = [];
+  const stack = [];
+  let pendingFolder = null;
+  const re = /<h3\b([^>]*)>([\s\S]*?)<\/h3>|<a\b([^>]*)>([\s\S]*?)<\/a>|<dl\b[^>]*>|<\/dl>/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const tok = m[0].toLowerCase();
+    if (tok.startsWith("<h3")) {
+      pendingFolder = decodeEntities(m[2].replace(/<[^>]+>/g, "")).trim();
+    } else if (tok.startsWith("<dl")) {
+      stack.push(pendingFolder || null);
+      pendingFolder = null;
+    } else if (tok.startsWith("</dl")) {
+      stack.pop();
+    } else {
+      const attrs = m[3] || "";
+      const grab = (name) => {
+        const r = new RegExp(name + '\\s*=\\s*"([^"]*)"', "i").exec(attrs) ||
+                  new RegExp(name + "\\s*=\\s*'([^']*)'", "i").exec(attrs);
+        return r ? r[1] : "";
+      };
+      const href = decodeEntities(grab("href"));
+      if (!href || /^(place|javascript):/i.test(href)) continue;
+      const addDate = parseInt(grab("add_date"), 10);
+      const folder = stack.filter(Boolean).join(" / ");
+      items.push(makeItem({
+        source: "browser", type: "bookmark",
+        title: decodeEntities(m[4].replace(/<[^>]+>/g, "")),
+        url: href,
+        saved_at: Number.isFinite(addDate) && addDate > 0 ? addDate * 1000 : null,
+        origin: folder,
+      }));
+    }
+  }
+  return items;
+}
+
+/* ---------- 2. Chrome "Bookmarks" JSON file ---------- */
+function webkitToMs(t) {
+  const n = Number(t);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n / 1000 - 11644473600000);
+}
+function parseChromeJSON(obj) {
+  const items = [];
+  function walk(node, path) {
+    if (!node) return;
+    if (node.type === "url") {
+      items.push(makeItem({
+        source: "browser", type: "bookmark",
+        title: node.name, url: node.url,
+        saved_at: webkitToMs(node.date_added),
+        origin: path.join(" / "),
+      }));
+    } else if (node.children) {
+      const p = node.name ? path.concat(node.name) : path;
+      for (const c of node.children) walk(c, p);
+    }
+  }
+  const roots = obj.roots || {};
+  for (const k of Object.keys(roots)) walk(roots[k], []);
+  return items;
+}
+
+/* ---------- 3. Facebook / Messenger data export ---------- */
+function parseFBMessages(objRaw) {
+  const obj = fbDeepFix(objRaw);
+  const thread = obj.title || (obj.thread_path || "").split("/").pop() || "conversation";
+  const items = [];
+  for (const msg of obj.messages || []) {
+    if (!msg || !msg.sender_name) continue;
+    const ts = Number(msg.timestamp_ms) || null;
+    const share = msg.share || {};
+    const media = !!(msg.photos || msg.videos || msg.gifs || msg.audio_files || msg.files || msg.sticker);
+    let type = "message", url = "", title = "";
+    if (share.link) {
+      type = "link"; url = share.link;
+      title = share.share_text || msg.content || share.link;
+    } else if (media) {
+      type = "media";
+      title = msg.content || (msg.photos ? "Photo" : msg.videos ? "Video" : msg.files ? "File" : msg.gifs ? "GIF" : msg.audio_files ? "Audio" : "Sticker");
+    } else if (msg.content) {
+      title = msg.content;
+    } else {
+      continue;
+    }
+    items.push(makeItem({
+      source: "messenger", type, title, url,
+      excerpt: msg.content || share.share_text || "",
+      author: msg.sender_name, origin: thread,
+      created_at: ts, saved_at: ts, has_media: media,
+    }));
+  }
+  return items;
+}
+
+function parseFBSaved(objRaw) {
+  const obj = fbDeepFix(objRaw);
+  let list = null;
+  for (const k of Object.keys(obj)) {
+    if (/saved/i.test(k) && Array.isArray(obj[k])) { list = obj[k]; break; }
+  }
+  if (!list) return [];
+  const items = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const ts = Number(entry.timestamp) > 0 ? Number(entry.timestamp) * 1000 : null;
+    let url = "", name = "", text = "";
+    const atts = entry.attachments || [];
+    for (const a of atts) {
+      for (const d of (a && a.data) || []) {
+        if (d && d.external_context) {
+          url = url || d.external_context.url || "";
+          name = name || d.external_context.name || "";
+        }
+        if (d && typeof d.text === "string") text = text || d.text;
+      }
+    }
+    if (!url && !name && !text && !entry.title) continue;
+    items.push(makeItem({
+      source: "facebook", type: "saved",
+      title: name || entry.title || text || url,
+      url, excerpt: text, saved_at: ts, created_at: ts,
+      origin: "Saved items",
+    }));
+  }
+  return items;
+}
+
+/* ---------- 4. X / Twitter ---------- */
+function parseXArchive(kind, arr) {
+  const items = [];
+  for (const row of arr || []) {
+    if (kind === "like") {
+      const l = row && row.like; if (!l) continue;
+      items.push(makeItem({
+        source: "x", type: "like",
+        title: l.fullText || l.expandedUrl || "Liked post",
+        excerpt: l.fullText || "",
+        url: l.expandedUrl || (l.tweetId ? "https://x.com/i/web/status/" + l.tweetId : ""),
+        origin: "Likes archive",
+      }));
+    } else {
+      const t = (row && (row.tweet || row)) || {};
+      if (!t.full_text && !t.text) continue;
+      const created = t.created_at ? Date.parse(t.created_at) : NaN;
+      items.push(makeItem({
+        source: "x", type: "post",
+        title: t.full_text || t.text,
+        excerpt: t.full_text || t.text,
+        url: t.id_str ? "https://x.com/i/web/status/" + t.id_str : "",
+        created_at: Number.isFinite(created) ? created : null,
+        origin: "Tweets archive",
+        author: "me",
+      }));
+    }
+  }
+  return items;
+}
+
+function parseXApiBookmarks(obj) {
+  const users = {};
+  for (const u of (obj.includes && obj.includes.users) || []) users[u.id] = u.username || u.name || "";
+  const items = [];
+  for (const t of obj.data || []) {
+    if (!t || typeof t.text !== "string") continue;
+    const created = t.created_at ? Date.parse(t.created_at) : NaN;
+    let url = "";
+    const urls = (t.entities && t.entities.urls) || [];
+    for (const u of urls) { if (u.expanded_url && !/^https?:\/\/(x|twitter)\.com\//i.test(u.expanded_url)) { url = u.expanded_url; break; } }
+    if (!url && urls[0]) url = urls[0].expanded_url || "";
+    if (!url && t.id) url = "https://x.com/i/web/status/" + t.id;
+    items.push(makeItem({
+      source: "x", type: "bookmark",
+      title: t.text, excerpt: t.text, url,
+      author: users[t.author_id] ? "@" + users[t.author_id] : "",
+      created_at: Number.isFinite(created) ? created : null,
+      origin: "X bookmarks",
+    }));
+  }
+  return items;
+}
+
+/* ---------- detection ---------- */
+function detectAndParse(filename, text) {
+  const name = (filename || "").toLowerCase();
+  const head = text.slice(0, 2000);
+
+  if (/<!doctype netscape/i.test(head) || (/<dl/i.test(head) && /<dt/i.test(head))) {
+    return { kind: "Browser bookmarks (HTML)", items: parseNetscapeHTML(text) };
+  }
+  if (/^\s*window\.YTD\./.test(head)) {
+    const eq = text.indexOf("=");
+    const kind = /window\.YTD\.(\w+)/.exec(head);
+    try {
+      const arr = JSON.parse(text.slice(eq + 1).trim());
+      const k = kind ? kind[1] : "tweets";
+      return { kind: "X archive (" + k + ".js)", items: parseXArchive(k === "like" ? "like" : "tweet", arr) };
+    } catch (e) { return { kind: "X archive", items: [], error: "Could not read this X archive file." }; }
+  }
+  let obj = null;
+  try { obj = JSON.parse(text); } catch (e) {
+    return { kind: "Unknown", items: [], error: "Not a recognized export format." };
+  }
+  if (obj && obj.roots && (obj.roots.bookmark_bar || obj.roots.other)) {
+    return { kind: "Chrome bookmarks (JSON)", items: parseChromeJSON(obj) };
+  }
+  if (obj && Array.isArray(obj.messages) && Array.isArray(obj.participants)) {
+    return { kind: "Messenger conversation", items: parseFBMessages(obj) };
+  }
+  if (obj && Object.keys(obj).some((k) => /saved/i.test(k) && Array.isArray(obj[k]))) {
+    return { kind: "Facebook saved items", items: parseFBSaved(obj) };
+  }
+  if (obj && Array.isArray(obj.data) && obj.data.length && typeof obj.data[0].text === "string") {
+    return { kind: "X bookmarks (API response)", items: parseXApiBookmarks(obj) };
+  }
+  if (obj && Array.isArray(obj) && obj.length && obj[0] && obj[0].like) {
+    return { kind: "X archive (likes)", items: parseXArchive("like", obj) };
+  }
+  return { kind: "Unknown", items: [], error: "Not a recognized export format. See \u201cWhere do I get these files?\u201d below." };
+}
+
+/* ---------- exports ---------- */
+const CSV_COLS = ["source", "type", "title", "url", "domain", "author", "origin", "excerpt", "created_at", "saved_at", "lang", "has_media"];
+function csvCell(v) {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function fmtDate(ms) {
+  if (!Number.isFinite(ms)) return "";
+  const d = new Date(ms);
+  if (isNaN(d)) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+function toCSV(rows) {
+  const lines = [CSV_COLS.join(",")];
+  for (const r of rows) {
+    lines.push(CSV_COLS.map((c) => {
+      if (c === "created_at" || c === "saved_at") return csvCell(fmtDate(r[c]));
+      if (c === "has_media") return r[c] ? "yes" : "";
+      return csvCell(r[c]);
+    }).join(","));
+  }
+  return "\uFEFF" + lines.join("\r\n");
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { fbFixString, fbDeepFix, hashId, domainOf, detectScript, decodeEntities, parseNetscapeHTML, parseChromeJSON, parseFBMessages, parseFBSaved, parseXArchive, parseXApiBookmarks, detectAndParse, toCSV, fmtDate, makeItem };
+}
+
+
+/* ================= Shoebox app ================= */
+(function () {
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+const SOURCES = ["browser", "messenger", "facebook", "x"];
+
+/* ---------- state ---------- */
+const items = new Map();          // id -> item
+let lastRows = [];                // rows after filter+sort (for exports)
+let lastGroups = [];              // [label, rows[]] (for xlsx sheets)
+const showMore = new Map();       // group label -> extra rows revealed
+let idbOK = false;
+
+/* ---------- optional persistence (IndexedDB, fully guarded) ---------- */
+let db = null;
+function openDB() {
+  return new Promise((resolve) => {
+    try {
+      if (!("indexedDB" in window)) return resolve(null);
+      const req = indexedDB.open("shoebox", 1);
+      req.onupgradeneeded = () => {
+        try { req.result.createObjectStore("items", { keyPath: "id" }); } catch (e) {}
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+function idbLoadAll() {
+  return new Promise((resolve) => {
+    if (!db) return resolve([]);
+    try {
+      const tx = db.transaction("items", "readonly");
+      const req = tx.objectStore("items").getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch (e) { resolve([]); }
+  });
+}
+function idbPut(list) {
+  return new Promise((resolve) => {
+    if (!db || !list.length) return resolve();
+    try {
+      const tx = db.transaction("items", "readwrite");
+      const st = tx.objectStore("items");
+      for (const it of list) { try { st.put(it); } catch (e) {} }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+function idbClear() {
+  return new Promise((resolve) => {
+    if (!db) return resolve();
+    try {
+      const tx = db.transaction("items", "readwrite");
+      tx.objectStore("items").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+
+/* ---------- duplicate detection across sources ---------- */
+function urlKey(u) {
+  if (!u || !/^https?:\/\//i.test(u)) return "";
+  try {
+    const url = new URL(u);
+    const drop = [];
+    url.searchParams.forEach((v, k) => { if (/^(utm_|fbclid|gclid|igsh|ref_src)/i.test(k)) drop.push(k); });
+    drop.forEach((k) => url.searchParams.delete(k));
+    url.hash = "";
+    let s = url.origin.toLowerCase().replace("//www.", "//") + url.pathname.replace(/\/$/, "") + (url.search || "");
+    return s;
+  } catch (e) { return u.toLowerCase(); }
+}
+function recomputeDups() {
+  const count = new Map();
+  for (const it of items.values()) {
+    const k = urlKey(it.url);
+    if (k) count.set(k, (count.get(k) || 0) + 1);
+  }
+  for (const it of items.values()) {
+    const k = urlKey(it.url);
+    it.dup = !!k && count.get(k) > 1;
+  }
+}
+
+/* ---------- import ---------- */
+function logLine(text, isErr) {
+  const li = el("li", isErr ? "err" : "");
+  li.append(text);
+  $("log").append(li);
+}
+function logResult(fname, kind, added, dupes) {
+  const li = el("li");
+  const b = el("b", "", fname);
+  li.append(b, ` \u2192 ${kind}: `);
+  li.append(el("b", "", `+${added}`));
+  li.append(dupes ? ` new (${dupes} already in)` : " new");
+  $("log").append(li);
+}
+
+async function importFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  let anyNew = false;
+  for (const f of files) {
+    if (f.size > 120 * 1024 * 1024) { logLine(`${f.name} \u2014 skipped (over 120 MB).`, true); continue; }
+    let text = "";
+    try { text = await f.text(); }
+    catch (e) { logLine(`${f.name} \u2014 could not be read.`, true); continue; }
+    let res;
+    try { res = detectAndParse(f.name, text); }
+    catch (e) { logLine(`${f.name} \u2014 parser error: ${e.message}`, true); continue; }
+    if (res.error) { logLine(`${f.name} \u2014 ${res.error}`, true); continue; }
+    let added = 0, dupes = 0;
+    const fresh = [];
+    for (const it of res.items) {
+      if (items.has(it.id)) { dupes++; continue; }
+      items.set(it.id, it); fresh.push(it); added++;
+    }
+    if (added) anyNew = true;
+    logResult(f.name, res.kind, added, dupes);
+    await idbPut(fresh);
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  if (anyNew) { recomputeDups(); rebuildOptions(); }
+  refresh();
+}
+
+/* ---------- filters / grouping / sorting ---------- */
+function sortDateOf(it) {
+  return Number.isFinite(it.saved_at) ? it.saved_at : (Number.isFinite(it.created_at) ? it.created_at : 0);
+}
+function currentRows() {
+  const q = $("q").value.trim().toLowerCase();
+  const src = $("fSource").value, typ = $("fType").value, lang = $("fLang").value;
+  const from = $("dFrom").value ? Date.parse($("dFrom").value) : null;
+  const to = $("dTo").value ? Date.parse($("dTo").value) + 86399999 : null;
+  const dupOnly = $("fDup").checked, mediaOnly = $("fMedia").checked;
+  const rows = [];
+  for (const it of items.values()) {
+    if (src && it.source !== src) continue;
+    if (typ && it.type !== typ) continue;
+    if (lang && it.lang !== lang) continue;
+    if (dupOnly && !it.dup) continue;
+    if (mediaOnly && !it.has_media) continue;
+    const d = sortDateOf(it);
+    if (from !== null && (!d || d < from)) continue;
+    if (to !== null && (!d || d > to)) continue;
+    if (q) {
+      const hay = (it.title + " " + it.excerpt + " " + it.author + " " + it.origin + " " + it.domain + " " + it.url).toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    rows.push(it);
+  }
+  const key = $("sortKey").value, dir = $("sortDir").value === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    let r = 0;
+    if (key === "date") r = sortDateOf(a) - sortDateOf(b);
+    else r = String(a[key === "author" ? "author" : key] || "").localeCompare(String(b[key === "author" ? "author" : key] || ""), undefined, { sensitivity: "base" });
+    return r === 0 ? String(a.title).localeCompare(String(b.title)) : r * dir;
+  });
+  return rows;
+}
+function groupLabel(it, by) {
+  if (!by) return "All items";
+  if (by === "month") { const d = sortDateOf(it); return d ? fmtDate(d).slice(0, 7) : "undated"; }
+  const v = it[by === "lang" ? "lang" : by];
+  if (by === "domain") return v || "no link";
+  if (by === "lang") return v || "other";
+  return v || "\u2014";
+}
+function groupRows(rows) {
+  const by = $("groupBy").value;
+  const map = new Map();
+  for (const r of rows) {
+    const g = groupLabel(r, by);
+    if (!map.has(g)) map.set(g, []);
+    map.get(g).push(r);
+  }
+  let groups = Array.from(map.entries());
+  if (by === "month") {
+    groups.sort((a, b) => (a[0] === "undated") - (b[0] === "undated") || b[0].localeCompare(a[0]));
+    if ($("sortDir").value === "asc") groups.reverse();
+  } else {
+    groups.sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  }
+  return groups;
+}
+
+/* ---------- rendering ---------- */
+function stamp(source) {
+  const s = el("span", "stamp " + source, source);
+  return s;
+}
+function qfButton(value) {
+  const b = el("button", "qf", value);
+  b.type = "button";
+  b.title = "Filter by \u201c" + value + "\u201d";
+  b.addEventListener("click", () => { $("q").value = value; refresh(); });
+  return b;
+}
+function renderTables(groups) {
+  const host = $("tables");
+  host.replaceChildren();
+  for (const [label, rows] of groups) {
+    const sec = el("section", "group");
+    const tab = el("div", "tab");
+    tab.append(label, el("span", "n", String(rows.length)));
+    const wrap = el("div", "tablewrap");
+    const table = el("table");
+    const thead = el("thead");
+    const hr = el("tr");
+    for (const h of ["Title", "Type", "Source", "Person", "Folder / thread", "Domain", "Saved", "Created"]) hr.append(el("th", "", h));
+    thead.append(hr); table.append(thead);
+    const tbody = el("tbody");
+    const cap = 150 + (showMore.get(label) || 0);
+    rows.slice(0, cap).forEach((it) => tbody.append(renderRow(it)));
+    table.append(tbody);
+    wrap.append(table);
+    if (rows.length > cap) {
+      const more = el("p", "more");
+      const btn = el("button", "", `Show ${Math.min(400, rows.length - cap)} more of ${rows.length}`);
+      btn.addEventListener("click", () => { showMore.set(label, (showMore.get(label) || 0) + 400); renderTables(lastGroups); });
+      more.append(btn); wrap.append(more);
+    }
+    sec.append(tab, wrap);
+    host.append(sec);
+  }
+}
+function renderRow(it) {
+  const tr = el("tr");
+  const tTitle = el("td", "t-title");
+  let titleNode;
+  if (/^https?:\/\//i.test(it.url)) {
+    titleNode = el("a", "", it.title);
+    titleNode.href = it.url;
+    titleNode.target = "_blank";
+    titleNode.rel = "noopener noreferrer";
+  } else {
+    titleNode = el("span", "", it.title);
+  }
+  titleNode.dir = "auto";
+  tTitle.append(titleNode);
+  if (it.dup) tTitle.append(el("span", "dupmark", "dup"));
+  if (it.excerpt && it.excerpt !== it.title) {
+    const ex = el("span", "ex", it.excerpt);
+    ex.dir = "auto";
+    tTitle.append(ex);
+  }
+  tr.append(tTitle);
+  tr.append(el("td", "t-num", it.type));
+  const tdS = el("td"); tdS.append(stamp(it.source)); tr.append(tdS);
+  const tdA = el("td"); if (it.author) tdA.append(qfButton(it.author)); else tdA.textContent = "\u2014"; tdA.dir = "auto"; tr.append(tdA);
+  const tdO = el("td"); if (it.origin) tdO.append(qfButton(it.origin)); else tdO.textContent = "\u2014"; tdO.dir = "auto"; tr.append(tdO);
+  const tdD = el("td"); if (it.domain) tdD.append(qfButton(it.domain)); else tdD.textContent = "\u2014"; tr.append(tdD);
+  tr.append(el("td", "t-num", fmtDate(it.saved_at) || "\u2014"));
+  tr.append(el("td", "t-num", fmtDate(it.created_at) || "\u2014"));
+  return tr;
+}
+function renderChips() {
+  const chips = $("chips");
+  chips.replaceChildren();
+  chips.append(el("span", "chip total", items.size + " items"));
+  const counts = {};
+  for (const it of items.values()) counts[it.source] = (counts[it.source] || 0) + 1;
+  for (const s of SOURCES) {
+    if (!counts[s]) continue;
+    const c = el("button", "chip" + ($("fSource").value === s ? " on" : ""));
+    const dot = el("span", "dot");
+    dot.style.background = getComputedStyle(document.documentElement).getPropertyValue("--s-" + s) || "";
+    c.append(dot, `${s} ${counts[s]}`);
+    c.addEventListener("click", () => {
+      $("fSource").value = $("fSource").value === s ? "" : s;
+      refresh();
+    });
+    chips.append(c);
+  }
+}
+function rebuildOptions() {
+  const keep = (sel) => sel.value;
+  const fill = (sel, values, prev) => {
+    sel.replaceChildren(new Option("all", ""));
+    for (const v of values) sel.append(new Option(v, v));
+    sel.value = values.includes(prev) ? prev : "";
+  };
+  const types = new Set(), langs = new Set(), srcs = new Set();
+  for (const it of items.values()) {
+    types.add(it.type); srcs.add(it.source);
+    if (it.lang) langs.add(it.lang);
+  }
+  fill($("fType"), Array.from(types).sort(), keep($("fType")));
+  fill($("fLang"), Array.from(langs).sort(), keep($("fLang")));
+  fill($("fSource"), SOURCES.filter((s) => srcs.has(s)), keep($("fSource")));
+}
+function refresh() {
+  showMore.clear();
+  const has = items.size > 0;
+  $("bar").hidden = !has;
+  $("controls").hidden = !has;
+  $("tray").classList.toggle("compact", has);
+  if (!has) { $("tables").replaceChildren(); $("emptyMatch").hidden = true; renderChips(); return; }
+  lastRows = currentRows();
+  lastGroups = groupRows(lastRows);
+  renderChips();
+  renderTables(lastGroups);
+  $("emptyMatch").hidden = lastRows.length > 0;
+}
+
+/* ---------- exports ---------- */
+function download(name, data, mime) {
+  const blob = new Blob([data], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+const stampName = () => "shoebox-" + fmtDate(Date.now());
+function exportCSV() { download(stampName() + ".csv", toCSV(lastRows), "text/csv;charset=utf-8"); }
+function exportJSON() {
+  const clean = lastRows.map(({ id, dup, ...rest }) => rest);
+  download(stampName() + ".json", JSON.stringify(clean, null, 2), "application/json");
+}
+function exportXLSX() {
+  if (typeof XLSX === "undefined") {
+    logLine("The XLSX library didn't load (are you offline?). CSV and JSON export still work.", true);
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const used = new Set();
+  const sheetName = (label) => {
+    let s = label.replace(/[\\\/\?\*\[\]:]/g, " ").trim().slice(0, 28) || "sheet";
+    let base = s, i = 2;
+    while (used.has(s)) s = base.slice(0, 25) + " " + i++;
+    used.add(s);
+    return s;
+  };
+  for (const [label, rows] of lastGroups) {
+    const data = rows.map((r) => ({
+      Title: r.title, Type: r.type, Source: r.source, Person: r.author,
+      "Folder / thread": r.origin, URL: r.url, Domain: r.domain,
+      Excerpt: r.excerpt, Saved: fmtDate(r.saved_at), Created: fmtDate(r.created_at),
+      Script: r.lang, Media: r.has_media ? "yes" : "", Duplicate: r.dup ? "yes" : "",
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), sheetName(label));
+  }
+  XLSX.writeFile(wb, stampName() + ".xlsx");
+}
+
+/* ---------- wiring ---------- */
+function debounce(fn, ms) { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
+
+function init() {
+  const tray = $("tray");
+  $("pickBtn").addEventListener("click", (e) => { e.stopPropagation(); $("fileInput").click(); });
+  tray.addEventListener("click", (e) => { if (!e.target.closest("#pickBtn")) $("fileInput").click(); });
+  $("fileInput").addEventListener("change", (e) => { importFiles(e.target.files); e.target.value = ""; });
+  ["dragenter", "dragover"].forEach((ev) => tray.addEventListener(ev, (e) => { e.preventDefault(); tray.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach((ev) => tray.addEventListener(ev, (e) => { e.preventDefault(); tray.classList.remove("drag"); }));
+  tray.addEventListener("drop", (e) => importFiles(e.dataTransfer.files));
+
+  $("q").addEventListener("input", debounce(refresh, 160));
+  for (const id of ["fSource", "fType", "fLang", "dFrom", "dTo", "groupBy", "sortKey", "sortDir", "fDup", "fMedia"]) {
+    $(id).addEventListener("change", refresh);
+  }
+  $("resetBtn").addEventListener("click", () => {
+    $("q").value = ""; $("dFrom").value = ""; $("dTo").value = "";
+    $("fSource").value = ""; $("fType").value = ""; $("fLang").value = "";
+    $("fDup").checked = false; $("fMedia").checked = false;
+    $("groupBy").value = "type"; $("sortKey").value = "date"; $("sortDir").value = "desc";
+    refresh();
+  });
+  $("csvBtn").addEventListener("click", exportCSV);
+  $("jsonBtn").addEventListener("click", exportJSON);
+  $("xlsxBtn").addEventListener("click", exportXLSX);
+  $("clearBtn").addEventListener("click", async () => {
+    if (!confirm("Delete everything Shoebox has stored on this device?")) return;
+    items.clear();
+    await idbClear();
+    $("log").replaceChildren();
+    refresh();
+  });
+
+  openDB().then(async (handle) => {
+    db = handle; idbOK = !!handle;
+    $("persistNote").textContent = idbOK
+      ? "Your sorted data stays on this device between visits."
+      : "Storage isn't available here, so data lasts for this session only.";
+    if (idbOK) {
+      const saved = await idbLoadAll();
+      if (saved.length) {
+        for (const it of saved) items.set(it.id, it);
+        recomputeDups(); rebuildOptions();
+        logLine(saved.length + " items restored from this device.");
+        refresh();
+      }
+    }
+  });
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();
+})();
+
+</script>
+</body>
+</html>
