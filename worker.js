@@ -1,5 +1,5 @@
 /**
- * Shoebox sorting service — Cloudflare Worker.
+ * Bokmark sorting service — Cloudflare Worker.
  *
  * Holds YOUR model API key so visitors never need one. Works with Google Gemini
  * or Anthropic Claude: set GOOGLE_API_KEY or ANTHROPIC_API_KEY as an encrypted
@@ -270,12 +270,14 @@ export default {
     const origin = request.headers.get("Origin") || "";
     const { headers: ch, ok: originOK } = corsHeaders(origin, env);
     const url = new URL(request.url);
+    // Tolerate a trailing slash in the client's configured base URL ("…dev//sort").
+    const path = url.pathname.replace(/\/{2,}/g, "/").replace(/(.)\/$/, "$1");
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: originOK ? 204 : 403, headers: ch });
     }
 
-    if (url.pathname === "/health") {
+    if (path === "/health") {
       return json({
         ok: true,
         provider: provider(env) || "none configured",
@@ -288,17 +290,17 @@ export default {
       }, 200, ch);
     }
 
-    if (request.method !== "POST" || url.pathname !== "/sort") {
+    if (request.method !== "POST" || path !== "/sort") {
       return json({ error: "Not found." }, 404, ch);
     }
     if (!originOK) {
-      return json({ error: "This bokmark service does not serve this site. The operator must add it to ALLOWED_ORIGINS." }, 403, ch);
+      return json({ error: "This Bokmark service does not serve this site. The operator must add it to ALLOWED_ORIGINS." }, 403, ch);
     }
     if (!provider(env) || !apiKey(env)) {
-      return json({ error: "This bokmark service has no API key configured yet." }, 503, ch);
+      return json({ error: "This Bokmark service has no API key configured yet." }, 503, ch);
     }
     if (!env.RL) {
-      return json({ error: "This bokmark service has no quota storage configured, so it is refusing to run." }, 503, ch);
+      return json({ error: "This Bokmark service has no quota storage configured, so it is refusing to run." }, 503, ch);
     }
     const len = parseInt(request.headers.get("content-length") || "0", 10);
     if (len > DEFAULTS.MAX_BODY) {

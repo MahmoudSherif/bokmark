@@ -1,4 +1,4 @@
-# Shoebox
+# Bokmark
 
 Sort your saved digital stuff — browser bookmarks, Messenger conversations, Facebook saved items, and X likes/bookmarks — into filterable tables, entirely in your browser.
 
@@ -7,7 +7,7 @@ One HTML file. No server, no accounts, no analytics, no build step.
 ## How it works
 
 1. Export your data from each platform (instructions are inside the app, under "Where do I get these files?").
-2. Open Shoebox and drop the export files onto the page.
+2. Open Bokmark and drop the export files onto the page.
 3. Everything is parsed locally, normalized into one schema, and grouped into tables by type, source, person, thread, domain, month, or script. Filter, search, and sort freely.
 4. Export the result as CSV, XLSX (one sheet per table), or JSON.
 
@@ -22,7 +22,7 @@ Supported inputs:
 
 ## AI folders
 
-Click **AI sort → folders** and Shoebox groups whatever is currently on screen into named topic folders. Two ways, no account either way:
+Click **AI sort → folders** and Bokmark groups whatever is currently on screen into named topic folders. Two ways, no account either way:
 
 - **Smart sort** (default) — free for your visitors, powered by *your* Google Gemini or Anthropic key, held on a small Cloudflare Worker. Best folder names ("Web Development", "Recipes", "Job Hunt", in the items' own language). Only each item's title, domain and type are sent; URLs, message bodies, and the names of people and chats are not. Up to 1,500 items per run.
 - **Private sort** — no server at all: a ~25 MB model downloads once and runs in the browser, so nothing leaves the device. No daily limit. Folder names come from each topic's key words. Also the automatic fallback when the daily budget runs out.
@@ -57,7 +57,7 @@ wrangler secret put IP_SALT              # any long random string
 wrangler deploy
 ```
 
-Wrangler prints a URL like `https://shoebox-sort.yourname.workers.dev`. Put it in the `SHOEBOX_API` constant near the top of the script in `index.html`, commit, and Smart sort turns on. Visit `/health` on the Worker to confirm the provider, key, quota storage, and origins are all wired up.
+Wrangler prints a URL like `https://bokmark-sort.yourname.workers.dev`. Put it in the `BOKMARK_API` constant near the top of the script in `index.html`, commit, and Smart sort turns on. Visit `/health` on the Worker to confirm the provider, key, quota storage, and origins are all wired up.
 
 ### Notes on Google Gemini
 

@@ -191,7 +191,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
     </div>
     <div class="ai-row">
       <label class="ai-mode"><input type="radio" name="aiMode" id="aiModeHosted" checked>
-        <span><b>Smart sort</b> — free, nothing to set up. Item titles and domains are sent to the Shoebox service, sorted by Claude, and returned as folder names. Nothing is stored on the way.</span></label>
+        <span><b>Smart sort</b> — free, nothing to set up. Item titles and domains are sent to the Bokmark service, sorted by Claude, and returned as folder names. Nothing is stored on the way.</span></label>
       <label class="ai-mode"><input type="radio" name="aiMode" id="aiModeLocal">
         <span><b>Private sort</b> — runs entirely in your browser. Downloads a ~25&nbsp;MB model once, then nothing you sort ever leaves this device. No daily limit; folder names come from each topic's key words.</span></label>
     </div>
@@ -223,16 +223,16 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
     In Chrome, Edge, Firefox, or Safari open the bookmark manager and choose <code>Export bookmarks</code> — you get one <code>.html</code> file. Drop it here. Chrome users can also drop the raw <code>Bookmarks</code> file from the Chrome profile folder.
   </div></details>
   <details><summary>Facebook &amp; Messenger</summary><div>
-    On Facebook go to <code>Settings &amp; privacy → Download your information</code>, pick <b>Messages</b> and/or <b>Saved items</b>, and set the format to <b>JSON</b> (not HTML). Facebook emails you a ZIP; unzip it, then drop the <code>message_1.json</code> files (one per conversation, under <code>messages/inbox/…</code>) and <code>your_saved_items.json</code> here. You can drop many files at once. Text in any language is fixed automatically — Facebook's export garbles non-English characters, and Shoebox repairs them.
+    On Facebook go to <code>Settings &amp; privacy → Download your information</code>, pick <b>Messages</b> and/or <b>Saved items</b>, and set the format to <b>JSON</b> (not HTML). Facebook emails you a ZIP; unzip it, then drop the <code>message_1.json</code> files (one per conversation, under <code>messages/inbox/…</code>) and <code>your_saved_items.json</code> here. You can drop many files at once. Text in any language is fixed automatically — Facebook's export garbles non-English characters, and Bokmark repairs them.
   </div></details>
   <details><summary>X (Twitter)</summary><div>
     Two options. <b>Archive:</b> request <code>Settings → Your account → Download an archive of your data</code>, unzip, and drop <code>like.js</code> or <code>tweets.js</code> from the <code>data</code> folder. <b>Bookmarks:</b> X only exposes bookmarks through its paid API — if you (or a developer friend) fetch <code>GET /2/users/:id/bookmarks</code>, drop the JSON response here and it's understood.
   </div></details>
-  <p class="fine">bokmark has no accounts and no analytics. Importing, filtering, sorting into tables and exporting all happen in your browser; what you import is stored only on your device. Its security policy lets the page contact just four services, each tied to one feature: <b>cdnjs.cloudflare.com</b> (spreadsheet library, on load), <b>huggingface.co / cdn.jsdelivr.net</b> (the private on-device model, only if you choose Private sort), the <b>Shoebox sorting service</b> (only if you choose Smart sort — it receives item titles, domains and types, forwards them to Claude for folder names, and stores none of it; URLs, people's names, chat names and message bodies are never sent), and <b>api.anthropic.com</b> (only if you supply your own key). No favicons or trackers are fetched, so the sites you saved never learn you're organizing them. Source is one readable HTML file, and the service is one small readable Worker — audit both.</p>
+  <p class="fine">bokmark_ has no accounts and no analytics. Importing, filtering, sorting into tables and exporting all happen in your browser; what you import is stored only on your device. Its security policy lets the page contact just four services, each tied to one feature: <b>cdnjs.cloudflare.com</b> (spreadsheet library, on load), <b>huggingface.co / cdn.jsdelivr.net</b> (the private on-device model, only if you choose Private sort), the <b>Bokmark sorting service</b> (only if you choose Smart sort — it receives item titles, domains and types, forwards them to Claude for folder names, and stores none of it; URLs, people's names, chat names and message bodies are never sent), and <b>api.anthropic.com</b> (only if you supply your own key). No favicons or trackers are fetched, so the sites you saved never learn you're organizing them. Source is one readable HTML file, and the service is one small readable Worker — audit both.</p>
 </footer>
 
 <script>
-/* Shoebox parsers — pure functions, no DOM required. */
+/* Bokmark parsers — pure functions, no DOM required. */
 
 /* ---------- Facebook mojibake fix ----------
    Facebook's "Download your information" JSON encodes text as UTF-8 bytes
@@ -591,7 +591,7 @@ if (typeof module !== "undefined") {
 }
 
 
-/* Shoebox AI sort — pure logic. Embeddings come from outside (neural or TF-IDF). */
+/* Bokmark AI sort — pure logic. Embeddings come from outside (neural or TF-IDF). */
 
 const STOP = new Set(("a,an,the,and,or,but,if,of,in,on,at,to,for,with,by,from,as,is,are,was,were,be,been,it,its,this,that,these,those,i,you,he,she,we,they,my,your,our,their,me,him,her,us,them,no,not,so,do,does,did,have,has,had,will,would,can,could,should,about,into,over,after,before,between,out,up,down,off,then,than,there,here,when,where,why,how,what,which,who,whom,all,any,both,each,more,most,other,some,such,only,own,same,too,very,just,also,new,get,got,one,two,via,vs,per," +
 "www,com,net,org,http,https,html,htm,php,index,amp,watch,video,videos,page,pages,post,posts,item,link,links,click,online,free,best,top,official,home,site,website,web,blog,archive,youtube,youtu,facebook,messenger,twitter,reddit,instagram,tiktok,google,share,shared,sent,says,said,like,re,ll,ve,dont,im").split(","));
@@ -797,7 +797,7 @@ if (typeof module !== "undefined") {
 }
 
 
-/* ================= Shoebox app ================= */
+/* ================= Bokmark app ================= */
 (function () {
 "use strict";
 
@@ -807,7 +807,10 @@ if (typeof module !== "undefined") {
    │  If your Worker is on a custom domain, add that domain to connect-src │
    │  in the Content-Security-Policy meta tag at the top of this file.     │
    └──────────────────────────────────────────────────────────────────────┘ */
-const SHOEBOX_API = "https://bokmark.mahmoudsherifm94.workers.dev";
+const BOKMARK_API = "https://bokmark.mahmoudsherifm94.workers.dev";
+
+/* Trailing slashes and stray whitespace are forgiven, so "…workers.dev/" works too. */
+const API_BASE = String(BOKMARK_API || "").trim().replace(/\/+$/, "");
 
 const $ = (id) => document.getElementById(id);
 function el(tag, cls, text) {
@@ -831,7 +834,7 @@ function openDB() {
   return new Promise((resolve) => {
     try {
       if (!("indexedDB" in window)) return resolve(null);
-      const req = indexedDB.open("shoebox", 2);
+      const req = indexedDB.open("bokmark", 2);
       req.onupgradeneeded = () => {
         try {
           const d = req.result;
@@ -1177,7 +1180,7 @@ function download(name, data, mime) {
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
-const stampName = () => "shoebox-" + fmtDate(Date.now());
+const stampName = () => "bokmark-" + fmtDate(Date.now());
 function exportCSV() { download(stampName() + ".csv", toCSV(lastRows), "text/csv;charset=utf-8"); }
 function exportJSON() {
   const clean = lastRows.map(({ id, dup, ...rest }) => rest);
@@ -1384,7 +1387,7 @@ async function runHosted(rows, kWanted) {
     };
     let res;
     try {
-      res = await fetch(SHOEBOX_API + "/sort", {
+      res = await fetch(API_BASE + "/sort", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -1414,7 +1417,7 @@ async function runHosted(rows, kWanted) {
 function aiMode() {
   if ($("aiKey").value.trim() && $("aiAdvanced").open) return "ownkey";
   if ($("aiModeLocal").checked) return "local";
-  return SHOEBOX_API ? "hosted" : "local";
+  return API_BASE ? "hosted" : "local";
 }
 
 async function runAISort() {
@@ -1430,7 +1433,7 @@ async function runAISort() {
   if (mode === "hosted") {
     const agreed = await metaGet("hostedConsent");
     if (!agreed) {
-      const ok = confirm("Smart sort sends each item's title, domain and type to the Shoebox service, which asks Claude for folder names and stores nothing.\n\nNot sent: web addresses, message bodies beyond the title line, and the names of people or chats.\n\nPrefer that nothing leaves your device? Cancel and pick Private sort instead.");
+      const ok = confirm("Smart sort sends each item's title, domain and type to the Bokmark service, which asks Claude for folder names and stores nothing.\n\nNot sent: web addresses, message bodies beyond the title line, and the names of people or chats.\n\nPrefer that nothing leaves your device? Cancel and pick Private sort instead.");
       if (!ok) return;
       await metaSet("hostedConsent", true);
     }
@@ -1496,25 +1499,25 @@ function init() {
     if (!p.hidden) { updateAiPanel(); p.scrollIntoView({ block: "nearest" }); }
   });
   const syncMode = () => {
-    if (!SHOEBOX_API) return;
+    if (!API_BASE) return;
     if ($("aiModeLocal").checked && $("aiAdvanced").open) $("aiAdvanced").open = false;
   };
   $("aiModeLocal").addEventListener("change", syncMode);
   $("aiModeHosted").addEventListener("change", syncMode);
-  if (!SHOEBOX_API) {
+  if (!API_BASE) {
     $("aiModeHosted").disabled = true;
     $("aiModeLocal").checked = true;
     const note = $("aiModeHosted").parentElement.querySelector("span");
     const b = document.createElement("b");
     b.textContent = "Smart sort";
-    note.replaceChildren(b, " \u2014 not available on this copy of Shoebox, because whoever deployed it hasn't set up a sorting service. Private sort below works with no setup at all.");
+    note.replaceChildren(b, " \u2014 not available on this copy of Bokmark, because whoever deployed it hasn't set up a sorting service. Private sort below works with no setup at all.");
     $("aiModeHosted").parentElement.style.opacity = ".55";
   }
   $("aiRun").addEventListener("click", runAISort);
   $("aiCancel").addEventListener("click", () => { aiCancelled = true; });
   $("aiClearFolders").addEventListener("click", clearFolders);
   $("clearBtn").addEventListener("click", async () => {
-    if (!confirm("Delete everything Shoebox has stored on this device?")) return;
+    if (!confirm("Delete everything Bokmark has stored on this device?")) return;
     items.clear();
     await idbClear();
     $("log").replaceChildren();
