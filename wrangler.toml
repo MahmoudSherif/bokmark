@@ -8,7 +8,7 @@ compatibility_date = "2025-01-01"
 PROVIDER = "google"
 
 # Comma-separated, no trailing slashes. Your GitHub Pages origin goes here.
-ALLOWED_ORIGINS = "https://bokmark.github.io"
+ALLOWED_ORIGINS = "https://mahmoudsherif.github.io"
 
 # Requests per visitor per day. Each request sorts up to 50 items.
 DAILY_IP_LIMIT = "20"
