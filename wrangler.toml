@@ -1,0 +1,39 @@
+name = "shoebox-sort"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# "google" (Gemini) or "anthropic" (Claude). Can be omitted — the Worker infers it
+# from whichever key secret you set.
+PROVIDER = "google"
+
+# Comma-separated, no trailing slashes. Your GitHub Pages origin goes here.
+ALLOWED_ORIGINS = "https://bokmark.github.io"
+
+# Requests per visitor per day. Each request sorts up to 50 items.
+DAILY_IP_LIMIT = "20"
+# Requests across all visitors per day — your ceiling on a viral day.
+# Keep this under your provider's daily cap if you're on Google's free tier.
+DAILY_GLOBAL_LIMIT = "800"
+
+# Leave unset to use the Worker's default for your provider. Check the current
+# model IDs in Google AI Studio before pinning one — Gemini names move fast.
+# A Flash-Lite model is plenty for filing bookmarks and much cheaper than Flash.
+# MODEL = "gemini-3.5-flash"
+
+# Gemini 3.x models think by default and reasoning tokens share the output budget.
+# Set this to "0" if batches come back truncated or cost more than expected.
+# THINKING_BUDGET = "0"
+
+# Any random string. Used to salt visitor IPs before hashing so they are never stored in the clear.
+IP_SALT = "change-meklgflkfkl"
+
+# Create with:  npx wrangler kv namespace create RL
+# then paste the printed id below.
+[[kv_namespaces]]
+binding = "RL"
+id = "PASTE_KV_NAMESPACE_ID_HERE"
+
+# The API key is NOT stored here. Set it as an encrypted secret:
+#   npx wrangler secret put GOOGLE_API_KEY
+# (or ANTHROPIC_API_KEY if you set PROVIDER = "anthropic")

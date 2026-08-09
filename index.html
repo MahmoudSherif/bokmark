@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://api.anthropic.com https://*.workers.dev; worker-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
 <title>Shoebox — sort your saved stuff</title>
 <style>
 :root{
@@ -91,6 +91,23 @@ tr:hover td{background:#FBFAF6}
 .more button{background:none;border:none;font-family:var(--mono);font-size:12px;color:var(--accent);padding:0}
 .dupmark{color:var(--danger);font-family:var(--mono);font-size:11px;margin-left:6px}
 
+.ai{margin-top:16px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.ai-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:baseline}
+.ai-head strong{font-size:14.5px}
+.ai-scope{font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.ai-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:12px}
+.ai-mode{display:flex;gap:9px;align-items:flex-start;flex:1;min-width:270px;font-size:13px;color:var(--ink2);cursor:pointer}
+.ai-mode b{color:var(--ink)}
+.ai-mode input{margin-top:3px;accent-color:var(--accent)}
+#aiAdvanced{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+#aiAdvanced summary{padding:9px 13px;font-size:13px;font-weight:400;color:var(--ink2)}
+#aiAdvanced div{padding:0 13px 12px}
+.prog{height:6px;background:var(--paper);border:1px solid var(--line);border-radius:99px;margin-top:14px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.ai-status{font-family:var(--mono);font-size:12px;color:var(--ink2);margin:8px 0 0;min-height:1.2em}
+.tab .rn{background:none;border:none;color:inherit;opacity:.6;font-family:var(--mono);font-size:11px;margin-left:9px;padding:0;cursor:pointer}
+.tab .rn:hover,.tab .rn:focus-visible{opacity:1}
+
 #emptyMatch{margin-top:34px;color:var(--ink2);font-family:var(--mono);font-size:13px}
 
 footer{margin:60px auto 40px;color:var(--ink2);font-size:13.5px}
@@ -115,7 +132,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
 <body>
 <header class="top">
   <div class="wordmark">shoebox</div>
-  <div class="pill" id="privacyPill"><b>local only</b> · nothing you add leaves this page</div>
+  <div class="pill" id="privacyPill"><b>local-first</b> · your items stay on your device</div>
 </header>
 <main>
   <section class="tray" id="tray">
@@ -132,6 +149,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
   <section class="bar" id="bar" hidden>
     <div class="chips" id="chips"></div>
     <div class="actions">
+      <button class="btn primary" id="aiBtn">AI sort &rarr; folders</button>
       <button class="btn" id="csvBtn">Export CSV</button>
       <button class="btn" id="xlsxBtn">Export XLSX</button>
       <button class="btn" id="jsonBtn">Export JSON</button>
@@ -147,7 +165,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
     <div class="field"><label for="dFrom">From</label><input id="dFrom" type="date"></div>
     <div class="field"><label for="dTo">To</label><input id="dTo" type="date"></div>
     <div class="field"><label for="groupBy">Group into tables by</label><select id="groupBy">
-      <option value="type" selected>type</option><option value="source">source</option>
+      <option value="type" selected>type</option><option value="folder">AI folder</option><option value="source">source</option>
       <option value="domain">domain</option><option value="author">person</option>
       <option value="origin">folder / thread</option><option value="month">month</option>
       <option value="lang">script</option><option value="">nothing (one table)</option>
@@ -166,6 +184,35 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
     <div class="field"><label>&nbsp;</label><button class="btn" id="resetBtn">Reset</button></div>
   </section>
 
+  <section class="ai" id="aiPanel" hidden>
+    <div class="ai-head">
+      <strong>Sort into topic folders</strong>
+      <span class="ai-scope" id="aiScope"></span>
+    </div>
+    <div class="ai-row">
+      <label class="ai-mode"><input type="radio" name="aiMode" id="aiModeHosted" checked>
+        <span><b>Smart sort</b> — free, nothing to set up. Item titles and domains are sent to the Shoebox service, sorted by Claude, and returned as folder names. Nothing is stored on the way.</span></label>
+      <label class="ai-mode"><input type="radio" name="aiMode" id="aiModeLocal">
+        <span><b>Private sort</b> — runs entirely in your browser. Downloads a ~25&nbsp;MB model once, then nothing you sort ever leaves this device. No daily limit; folder names come from each topic's key words.</span></label>
+    </div>
+    <details id="aiAdvanced"><summary>Use my own Anthropic key instead</summary><div>
+      <p style="margin:0 0 10px;font-size:13px">Skips the shared service and its daily limit. Billed to your own Anthropic account.</p>
+      <div class="ai-row" style="margin-top:0">
+        <div class="field grow"><label for="aiKey">API key</label><input id="aiKey" type="password" placeholder="sk-ant-…" autocomplete="off"></div>
+        <div class="field"><label for="aiModel">Model</label><input id="aiModel" type="text" value="claude-haiku-4-5-20251001"></div>
+        <div class="checks"><label><input type="checkbox" id="aiRemember"> remember on this device</label></div>
+      </div>
+    </div></details>
+    <div class="ai-row">
+      <div class="field"><label for="aiK">Folders</label><select id="aiK"><option value="0" selected>auto</option><option>6</option><option>9</option><option>12</option><option>15</option></select></div>
+      <button class="btn primary" id="aiRun">Sort items</button>
+      <button class="btn" id="aiCancel" hidden>Cancel</button>
+      <button class="btn" id="aiClearFolders" hidden>Remove folders</button>
+    </div>
+    <div class="prog" id="aiProgWrap" hidden><i id="aiProg"></i></div>
+    <p class="ai-status" id="aiStatus"></p>
+  </section>
+
   <section id="tables"></section>
   <p id="emptyMatch" hidden>No items match these filters.</p>
 </main>
@@ -181,7 +228,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
   <details><summary>X (Twitter)</summary><div>
     Two options. <b>Archive:</b> request <code>Settings → Your account → Download an archive of your data</code>, unzip, and drop <code>like.js</code> or <code>tweets.js</code> from the <code>data</code> folder. <b>Bookmarks:</b> X only exposes bookmarks through its paid API — if you (or a developer friend) fetch <code>GET /2/users/:id/bookmarks</code>, drop the JSON response here and it's understood.
   </div></details>
-  <p class="fine">shoebox_ has no server, no accounts, and no analytics. The page's security policy forbids all network connections, so your data cannot be sent anywhere — you can verify this in your browser's network tab. Nothing is fetched per-item either (not even favicons), so the sites you saved never learn you're organizing them. Dead-link checking and live X sync are deliberately left out for now: both would require network access. Source code is one readable HTML file — audit it.</p>
+  <p class="fine">shoebox_ has no accounts and no analytics. Importing, filtering, sorting into tables and exporting all happen in your browser; what you import is stored only on your device. Its security policy lets the page contact just four services, each tied to one feature: <b>cdnjs.cloudflare.com</b> (spreadsheet library, on load), <b>huggingface.co / cdn.jsdelivr.net</b> (the private on-device model, only if you choose Private sort), the <b>Shoebox sorting service</b> (only if you choose Smart sort — it receives item titles, domains and types, forwards them to Claude for folder names, and stores none of it; URLs, people's names, chat names and message bodies are never sent), and <b>api.anthropic.com</b> (only if you supply your own key). No favicons or trackers are fetched, so the sites you saved never learn you're organizing them. Source is one readable HTML file, and the service is one small readable Worker — audit both.</p>
 </footer>
 
 <script>
@@ -514,7 +561,7 @@ function detectAndParse(filename, text) {
 }
 
 /* ---------- exports ---------- */
-const CSV_COLS = ["source", "type", "title", "url", "domain", "author", "origin", "excerpt", "created_at", "saved_at", "lang", "has_media"];
+const CSV_COLS = ["source", "type", "folder", "title", "url", "domain", "author", "origin", "excerpt", "created_at", "saved_at", "lang", "has_media"];
 function csvCell(v) {
   if (v === null || v === undefined) return "";
   const s = String(v);
@@ -544,9 +591,223 @@ if (typeof module !== "undefined") {
 }
 
 
+/* Shoebox AI sort — pure logic. Embeddings come from outside (neural or TF-IDF). */
+
+const STOP = new Set(("a,an,the,and,or,but,if,of,in,on,at,to,for,with,by,from,as,is,are,was,were,be,been,it,its,this,that,these,those,i,you,he,she,we,they,my,your,our,their,me,him,her,us,them,no,not,so,do,does,did,have,has,had,will,would,can,could,should,about,into,over,after,before,between,out,up,down,off,then,than,there,here,when,where,why,how,what,which,who,whom,all,any,both,each,more,most,other,some,such,only,own,same,too,very,just,also,new,get,got,one,two,via,vs,per," +
+"www,com,net,org,http,https,html,htm,php,index,amp,watch,video,videos,page,pages,post,posts,item,link,links,click,online,free,best,top,official,home,site,website,web,blog,archive,youtube,youtu,facebook,messenger,twitter,reddit,instagram,tiktok,google,share,shared,sent,says,said,like,re,ll,ve,dont,im").split(","));
+
+function tokenize(text) {
+  const out = [];
+  const re = /[\p{L}\p{N}]{2,}/gu;
+  let m;
+  const s = String(text || "").toLowerCase();
+  while ((m = re.exec(s)) !== null) {
+    const w = m[0];
+    if (!STOP.has(w) && !/^\d+$/.test(w)) out.push(w);
+  }
+  return out;
+}
+
+function embedTextOf(it) {
+  return [it.title, it.domain, it.origin, (it.excerpt || "").slice(0, 120)].filter(Boolean).join(". ");
+}
+
+/* ---------- TF-IDF fallback vectors ---------- */
+function buildTfidf(docsTokens, maxTerms) {
+  maxTerms = maxTerms || 512;
+  const df = new Map();
+  for (const toks of docsTokens) {
+    for (const t of new Set(toks)) df.set(t, (df.get(t) || 0) + 1);
+  }
+  const n = docsTokens.length;
+  const vocab = Array.from(df.entries())
+    .filter(([, d]) => d >= 2 || n < 20)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxTerms)
+    .map(([t]) => t);
+  const index = new Map(vocab.map((t, i) => [t, i]));
+  const idf = vocab.map((t) => Math.log(1 + n / (1 + df.get(t))));
+  const vectors = docsTokens.map((toks) => {
+    const v = new Float32Array(vocab.length);
+    for (const t of toks) {
+      const i = index.get(t);
+      if (i !== undefined) v[i] += idf[i];
+    }
+    let norm = 0;
+    for (let i = 0; i < v.length; i++) norm += v[i] * v[i];
+    norm = Math.sqrt(norm) || 1;
+    for (let i = 0; i < v.length; i++) v[i] /= norm;
+    return v;
+  });
+  return { vectors, vocab, idfMap: new Map(vocab.map((t, i) => [t, idf[i]])) };
+}
+
+/* ---------- k-means (cosine on normalized vectors) ---------- */
+function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+
+function kmeans(vectors, k, iters, rand) {
+  rand = rand || Math.random;
+  const n = vectors.length;
+  if (!n) return { assign: [], k: 0 };
+  k = Math.max(1, Math.min(k, n));
+  const dim = vectors[0].length;
+  const centroids = [];
+  const first = Math.floor(rand() * n);
+  centroids.push(Float32Array.from(vectors[first]));
+  while (centroids.length < k) {
+    const dists = vectors.map((v) => {
+      let best = -1;
+      for (const c of centroids) best = Math.max(best, dot(v, c));
+      return Math.max(0, 1 - best);
+    });
+    let sum = dists.reduce((a, b) => a + b, 0);
+    if (sum <= 1e-9) { centroids.push(Float32Array.from(vectors[Math.floor(rand() * n)])); continue; }
+    let r = rand() * sum, pick = 0;
+    for (let i = 0; i < n; i++) { r -= dists[i]; if (r <= 0) { pick = i; break; } }
+    centroids.push(Float32Array.from(vectors[pick]));
+  }
+  let assign = new Array(n).fill(0);
+  for (let it = 0; it < (iters || 25); it++) {
+    let changed = false;
+    for (let i = 0; i < n; i++) {
+      let best = 0, bestSim = -Infinity;
+      for (let c = 0; c < k; c++) {
+        const s = dot(vectors[i], centroids[c]);
+        if (s > bestSim) { bestSim = s; best = c; }
+      }
+      if (assign[i] !== best) { assign[i] = best; changed = true; }
+    }
+    const sums = Array.from({ length: k }, () => new Float64Array(dim));
+    const counts = new Array(k).fill(0);
+    for (let i = 0; i < n; i++) {
+      counts[assign[i]]++;
+      const v = vectors[i], s = sums[assign[i]];
+      for (let d = 0; d < dim; d++) s[d] += v[d];
+    }
+    for (let c = 0; c < k; c++) {
+      if (!counts[c]) {
+        let worst = 0, worstSim = Infinity;
+        for (let i = 0; i < n; i++) {
+          const s = dot(vectors[i], centroids[assign[i]]);
+          if (s < worstSim) { worstSim = s; worst = i; }
+        }
+        centroids[c] = Float32Array.from(vectors[worst]);
+        assign[worst] = c;
+        continue;
+      }
+      const cen = new Float32Array(dim);
+      let norm = 0;
+      for (let d = 0; d < dim; d++) { cen[d] = sums[c][d] / counts[c]; norm += cen[d] * cen[d]; }
+      norm = Math.sqrt(norm) || 1;
+      for (let d = 0; d < dim; d++) cen[d] /= norm;
+      centroids[c] = cen;
+    }
+    if (!changed && it > 0) break;
+  }
+  return { assign, k };
+}
+
+function autoK(n) {
+  return Math.max(2, Math.min(14, Math.round(Math.sqrt(n / 2))));
+}
+
+/* ---------- name clusters from their distinguishing terms ---------- */
+function titleCaseWord(w) {
+  if (w.length <= 3 && w === w.toLowerCase() && /^[a-z]+$/.test(w)) return w.toUpperCase() === w ? w : w.charAt(0).toUpperCase() + w.slice(1);
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+function nameClusters(assign, k, itemsList, idfMap) {
+  const perCluster = Array.from({ length: k }, () => new Map());
+  const global = new Map();
+  itemsList.forEach((it, i) => {
+    const toks = tokenize(embedTextOf(it));
+    for (const t of toks) {
+      const m = perCluster[assign[i]];
+      m.set(t, (m.get(t) || 0) + 1);
+      global.set(t, (global.get(t) || 0) + 1);
+    }
+  });
+  const names = [];
+  const used = new Set();
+  for (let c = 0; c < k; c++) {
+    const m = perCluster[c];
+    const scored = Array.from(m.entries()).map(([t, f]) => {
+      const idf = idfMap && idfMap.get(t) !== undefined ? idfMap.get(t) : Math.log(1 + itemsList.length / (1 + (global.get(t) || 1)));
+      return [t, f * idf];
+    }).sort((a, b) => b[1] - a[1]);
+    const top = [];
+    for (const [t] of scored) {
+      if (top.some((x) => x.startsWith(t) || t.startsWith(x))) continue;
+      top.push(t);
+      if (top.length === 2) break;
+    }
+    let name = top.map(titleCaseWord).join(" \u00b7 ") || "Misc " + (c + 1);
+    let base = name, i2 = 2;
+    while (used.has(name)) name = base + " " + i2++;
+    used.add(name);
+    names.push(name);
+  }
+  return names;
+}
+
+/* ---------- Claude batch prompt + parsing ---------- */
+const CLAUDE_SYSTEM = "You are a meticulous librarian who sorts a person's saved bookmarks, links, and messages into topic folders. You respond with valid JSON only: no prose, no markdown, no code fences.";
+
+function buildClaudeBatchPrompt(rows, startIndex, existingFolders, target) {
+  const lines = rows.map((it, i) =>
+    (startIndex + i) + ". [" + it.type + "] " + it.title.slice(0, 110) +
+    (it.domain ? " | " + it.domain : "") +
+    (it.origin ? " | from: " + it.origin.slice(0, 40) : "")
+  );
+  return [
+    "Assign every item below to exactly one topic folder.",
+    "Rules:",
+    "- Folder names: 1-3 words, Title Case, in the dominant language of the items in that folder.",
+    "- Prefer broad, useful topics (e.g. \"Web Development\", \"Recipes\", \"Job Hunt\") over hyper-specific ones.",
+    "- Aim for roughly " + target + " folders across the entire collection, so REUSE existing folder names whenever an item fits one.",
+    existingFolders.length ? "- Existing folders so far: " + JSON.stringify(existingFolders) : "- No folders exist yet; you create the first ones.",
+    "- Every item number must appear exactly once in your answer.",
+    "",
+    "Items:",
+    lines.join("\n"),
+    "",
+    "Answer with one JSON object mapping item number to folder name, e.g. {\"12\":\"Recipes\",\"13\":\"Web Development\"}",
+  ].join("\n");
+}
+
+function parseFolderJSON(text) {
+  if (typeof text !== "string") return null;
+  let s = text.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "");
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a === -1 || b === -1 || b <= a) return null;
+  try {
+    const obj = JSON.parse(s.slice(a, b + 1));
+    const out = {};
+    for (const k of Object.keys(obj)) {
+      const idx = parseInt(k, 10);
+      const v = obj[k];
+      if (Number.isFinite(idx) && typeof v === "string" && v.trim()) out[idx] = v.trim().slice(0, 60);
+    }
+    return Object.keys(out).length ? out : null;
+  } catch (e) { return null; }
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { tokenize, embedTextOf, buildTfidf, kmeans, autoK, nameClusters, buildClaudeBatchPrompt, parseFolderJSON, CLAUDE_SYSTEM };
+}
+
+
 /* ================= Shoebox app ================= */
 (function () {
 "use strict";
+
+/* ┌──────────────────────────────────────────────────────────────────────┐
+   │  CONFIG — set this to your deployed Worker URL, no trailing slash.    │
+   │  Leave it empty and Smart sort is hidden; Private sort still works.   │
+   │  If your Worker is on a custom domain, add that domain to connect-src │
+   │  in the Content-Security-Policy meta tag at the top of this file.     │
+   └──────────────────────────────────────────────────────────────────────┘ */
+const SHOEBOX_API = "";   // e.g. "https://shoebox-sort.yourname.workers.dev"
 
 const $ = (id) => document.getElementById(id);
 function el(tag, cls, text) {
@@ -570,9 +831,13 @@ function openDB() {
   return new Promise((resolve) => {
     try {
       if (!("indexedDB" in window)) return resolve(null);
-      const req = indexedDB.open("shoebox", 1);
+      const req = indexedDB.open("shoebox", 2);
       req.onupgradeneeded = () => {
-        try { req.result.createObjectStore("items", { keyPath: "id" }); } catch (e) {}
+        try {
+          const d = req.result;
+          if (!d.objectStoreNames.contains("items")) d.createObjectStore("items", { keyPath: "id" });
+          if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta");
+        } catch (e) {}
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
@@ -609,6 +874,38 @@ function idbClear() {
     try {
       const tx = db.transaction("items", "readwrite");
       tx.objectStore("items").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+function metaGet(key) {
+  return new Promise((resolve) => {
+    if (!db) return resolve(null);
+    try {
+      const rq = db.transaction("meta", "readonly").objectStore("meta").get(key);
+      rq.onsuccess = () => resolve(rq.result === undefined ? null : rq.result);
+      rq.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+function metaSet(key, value) {
+  return new Promise((resolve) => {
+    if (!db) return resolve();
+    try {
+      const tx = db.transaction("meta", "readwrite");
+      tx.objectStore("meta").put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (e) { resolve(); }
+  });
+}
+function metaDel(key) {
+  return new Promise((resolve) => {
+    if (!db) return resolve();
+    try {
+      const tx = db.transaction("meta", "readwrite");
+      tx.objectStore("meta").delete(key);
       tx.oncomplete = () => resolve();
       tx.onerror = () => resolve();
     } catch (e) { resolve(); }
@@ -763,6 +1060,13 @@ function renderTables(groups) {
     const sec = el("section", "group");
     const tab = el("div", "tab");
     tab.append(label, el("span", "n", String(rows.length)));
+    if ($("groupBy").value === "folder" && label !== "\u2014") {
+      const rn = el("button", "rn", "\u270e rename");
+      rn.type = "button";
+      rn.setAttribute("aria-label", "Rename folder " + label);
+      rn.addEventListener("click", () => renameFolder(label));
+      tab.append(rn);
+    }
     const wrap = el("div", "tablewrap");
     const table = el("table");
     const thead = el("thead");
@@ -855,12 +1159,13 @@ function refresh() {
   $("bar").hidden = !has;
   $("controls").hidden = !has;
   $("tray").classList.toggle("compact", has);
-  if (!has) { $("tables").replaceChildren(); $("emptyMatch").hidden = true; renderChips(); return; }
+  if (!has) { $("tables").replaceChildren(); $("emptyMatch").hidden = true; $("aiPanel").hidden = true; renderChips(); return; }
   lastRows = currentRows();
   lastGroups = groupRows(lastRows);
   renderChips();
   renderTables(lastGroups);
   $("emptyMatch").hidden = lastRows.length > 0;
+  if (!$("aiPanel").hidden) updateAiPanel();
 }
 
 /* ---------- exports ---------- */
@@ -894,7 +1199,7 @@ function exportXLSX() {
   };
   for (const [label, rows] of lastGroups) {
     const data = rows.map((r) => ({
-      Title: r.title, Type: r.type, Source: r.source, Person: r.author,
+      Folder: r.folder || "", Title: r.title, Type: r.type, Source: r.source, Person: r.author,
       "Folder / thread": r.origin, URL: r.url, Domain: r.domain,
       Excerpt: r.excerpt, Saved: fmtDate(r.saved_at), Created: fmtDate(r.created_at),
       Script: r.lang, Media: r.has_media ? "yes" : "", Duplicate: r.dup ? "yes" : "",
@@ -902,6 +1207,261 @@ function exportXLSX() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), sheetName(label));
   }
   XLSX.writeFile(wb, stampName() + ".xlsx");
+}
+
+/* ---------- AI sort into folders ---------- */
+let aiBusy = false, aiCancelled = false, embedder = null;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function setProg(p) {
+  const w = $("aiProgWrap");
+  if (p === null) { w.hidden = true; $("aiProg").style.width = "0"; return; }
+  w.hidden = false;
+  $("aiProg").style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + "%";
+}
+function setStatus(t, isErr) {
+  const s = $("aiStatus");
+  s.textContent = t || "";
+  s.style.color = isErr ? "var(--danger)" : "";
+}
+function updateAiPanel() {
+  $("aiScope").textContent = "sorts the " + lastRows.length + " items currently shown \u2014 use the filters above to narrow first";
+  $("aiRun").textContent = "Sort " + lastRows.length + " items";
+  let any = false;
+  for (const it of items.values()) if (it.folder) { any = true; break; }
+  $("aiClearFolders").hidden = !any;
+}
+function renameFolder(oldName) {
+  const nn = prompt("Rename folder \u201c" + oldName + "\u201d to:", oldName);
+  if (nn === null) return;
+  const t = nn.trim().slice(0, 60);
+  if (!t || t === oldName) return;
+  const changed = [];
+  for (const it of items.values()) if (it.folder === oldName) { it.folder = t; changed.push(it); }
+  idbPut(changed);
+  refresh();
+}
+async function clearFolders() {
+  if (!confirm("Remove all AI folder assignments? Your items stay; only the folders go.")) return;
+  const changed = [];
+  for (const it of items.values()) if (it.folder) { delete it.folder; changed.push(it); }
+  await idbPut(changed);
+  if ($("groupBy").value === "folder") $("groupBy").value = "type";
+  refresh();
+}
+
+/* --- on-device: neural embeddings, TF-IDF fallback --- */
+async function ensureEmbedder() {
+  if (embedder) return embedder;
+  setStatus("loading the on-device model (~25 MB, cached after the first time)\u2026");
+  const T = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
+  T.env.allowLocalModels = false;
+  if (T.env.backends && T.env.backends.onnx && T.env.backends.onnx.wasm) T.env.backends.onnx.wasm.numThreads = 1;
+  embedder = await T.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+    quantized: true,
+    progress_callback: (d) => {
+      if (d && d.status === "progress" && d.total) {
+        setProg(d.loaded / d.total);
+        setStatus("downloading model " + Math.round(d.loaded / 1048576) + " / " + Math.round(d.total / 1048576) + " MB\u2026");
+      }
+    },
+  });
+  return embedder;
+}
+async function embedAll(rows) {
+  const ex = await ensureEmbedder();
+  const out = [];
+  const B = 32;
+  for (let i = 0; i < rows.length; i += B) {
+    if (aiCancelled) throw new Error("cancelled");
+    const batch = rows.slice(i, i + B).map(embedTextOf);
+    const t = await ex(batch, { pooling: "mean", normalize: true });
+    const dim = t.dims[t.dims.length - 1];
+    for (let r = 0; r < batch.length; r++) out.push(Float32Array.from(t.data.subarray(r * dim, (r + 1) * dim)));
+    setStatus("reading items " + Math.min(i + B, rows.length) + " / " + rows.length + "\u2026");
+    setProg(Math.min(i + B, rows.length) / rows.length);
+    await sleep(0);
+  }
+  return out;
+}
+async function runLocal(rows, kWanted) {
+  let vectors = null, idfMap = null;
+  try {
+    vectors = await embedAll(rows);
+  } catch (e) {
+    if (aiCancelled) throw e;
+    logLine("On-device model unavailable (" + e.message + ") \u2014 falling back to keyword analysis for this run.", true);
+    const toks = rows.map((r) => tokenize(embedTextOf(r)));
+    const tf = buildTfidf(toks);
+    vectors = tf.vectors; idfMap = tf.idfMap;
+  }
+  setStatus("clustering into topics\u2026");
+  setProg(null);
+  await sleep(20);
+  const k = kWanted || autoK(rows.length);
+  const km = kmeans(vectors, k, 30);
+  const names = nameClusters(km.assign, km.k, rows, idfMap);
+  rows.forEach((it, i) => { it.folder = names[km.assign[i]]; });
+  return new Set(names).size;
+}
+
+/* --- Claude: bring-your-own-key, direct from the browser --- */
+async function claudeCall(key, model, prompt) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model, max_tokens: 2000, system: CLAUDE_SYSTEM,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (res.status === 401 || res.status === 403) throw new Error("Anthropic rejected the API key (HTTP " + res.status + ").");
+  if (res.status === 429) { const e = new Error("rate limited"); e.rateLimited = true; throw e; }
+  if (!res.ok) {
+    let msg = "Anthropic API error (HTTP " + res.status + ")";
+    try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e2) {}
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  return (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+}
+async function runClaude(rows, kWanted) {
+  const key = $("aiKey").value.trim();
+  if (!key) throw new Error("Paste your Anthropic API key first (from console.anthropic.com).");
+  const model = $("aiModel").value.trim() || "claude-haiku-4-5-20251001";
+  if ($("aiRemember").checked) metaSet("anthropicKey", key); else metaDel("anthropicKey");
+  const target = kWanted || Math.max(6, Math.min(18, autoK(rows.length) + 4));
+  const B = 50, total = Math.ceil(rows.length / B);
+  const folderSet = new Set();
+  for (const it of items.values()) if (it.folder) folderSet.add(it.folder);
+  for (let b = 0; b < total; b++) {
+    if (aiCancelled) throw new Error("cancelled");
+    setStatus("Claude is sorting batch " + (b + 1) + " / " + total + "\u2026");
+    setProg(b / total);
+    const slice = rows.slice(b * B, (b + 1) * B);
+    const prompt = buildClaudeBatchPrompt(slice, b * B + 1, Array.from(folderSet).slice(0, 40), target);
+    let txt = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try { txt = await claudeCall(key, model, prompt); break; }
+      catch (e) {
+        if (e.rateLimited && attempt < 2) { setStatus("rate limited \u2014 retrying in 20 s\u2026"); await sleep(20000); }
+        else throw e;
+      }
+    }
+    const map = parseFolderJSON(txt);
+    if (!map) { logLine("Batch " + (b + 1) + ": couldn't read Claude's answer; those items stay unsorted.", true); continue; }
+    slice.forEach((it, i) => {
+      const f = map[b * B + 1 + i];
+      if (f) { it.folder = f; folderSet.add(f); }
+    });
+  }
+  return folderSet.size;
+}
+
+/* --- hosted: the operator's key, used through their Worker --- */
+async function runHosted(rows, kWanted) {
+  const target = kWanted || Math.max(6, Math.min(18, autoK(rows.length) + 4));
+  const B = 50, total = Math.ceil(rows.length / B);
+  const folderSet = new Set();
+  for (const it of items.values()) if (it.folder) folderSet.add(it.folder);
+
+  for (let b = 0; b < total; b++) {
+    if (aiCancelled) throw new Error("cancelled");
+    setStatus("sorting batch " + (b + 1) + " / " + total + "\u2026");
+    setProg(b / total);
+    const slice = rows.slice(b * B, (b + 1) * B);
+    /* Only these three fields leave the browser. No URLs, no excerpts,
+       no folder/thread names (those are often people's names). */
+    const payload = {
+      items: slice.map((it, i) => ({ i: b * B + 1 + i, t: it.title.slice(0, 110), d: it.domain, y: it.type })),
+      existing: Array.from(folderSet).slice(0, 40),
+      target,
+    };
+    let res;
+    try {
+      res = await fetch(SHOEBOX_API + "/sort", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      throw new Error("Couldn't reach the sorting service. Check your connection, or use Private sort which needs no server.");
+    }
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (res.status === 429) {
+      const partial = folderSet.size > 0;
+      throw new Error((data.message || "Daily limit reached.") + (partial ? " Folders assigned so far have been kept." : ""));
+    }
+    if (!res.ok) throw new Error(data.message || "The sorting service returned an error (" + res.status + ").");
+    if (!data.map) { logLine("Batch " + (b + 1) + ": no answer for those items; they stay unsorted.", true); continue; }
+    slice.forEach((it, i) => {
+      const f = data.map[b * B + 1 + i];
+      if (f) { it.folder = f; folderSet.add(f); }
+    });
+    if (typeof data.remaining === "number" && data.remaining <= 2 && b === total - 1) {
+      logLine("Heads up: " + data.remaining + " free sorting run" + (data.remaining === 1 ? "" : "s") + " left today. Private sort has no limit.");
+    }
+  }
+  return folderSet.size;
+}
+
+function aiMode() {
+  if ($("aiKey").value.trim() && $("aiAdvanced").open) return "ownkey";
+  if ($("aiModeLocal").checked) return "local";
+  return SHOEBOX_API ? "hosted" : "local";
+}
+
+async function runAISort() {
+  if (aiBusy) return;
+  const rows = lastRows.slice();
+  if (!rows.length) { setStatus("Nothing to sort \u2014 adjust the filters first.", true); return; }
+  const mode = aiMode();
+  const cap = mode === "local" ? 4000 : 1500;
+  if (rows.length > cap) {
+    setStatus(rows.length + " items is over the " + cap + "-per-run limit \u2014 narrow with the filters (one source or type at a time works well) and run again.", true);
+    return;
+  }
+  if (mode === "hosted") {
+    const agreed = await metaGet("hostedConsent");
+    if (!agreed) {
+      const ok = confirm("Smart sort sends each item's title, domain and type to the Shoebox service, which asks Claude for folder names and stores nothing.\n\nNot sent: web addresses, message bodies beyond the title line, and the names of people or chats.\n\nPrefer that nothing leaves your device? Cancel and pick Private sort instead.");
+      if (!ok) return;
+      await metaSet("hostedConsent", true);
+    }
+  }
+  if (mode === "ownkey") {
+    const batches = Math.ceil(rows.length / 50);
+    if (!confirm("This makes " + batches + " small API call" + (batches > 1 ? "s" : "") + " to Anthropic with your key (typically a cent or two on Haiku). Continue?")) return;
+  }
+  aiBusy = true; aiCancelled = false;
+  $("aiRun").disabled = true; $("aiCancel").hidden = false;
+  try {
+    const k = parseInt($("aiK").value, 10) || 0;
+    let folderCount;
+    if (mode === "local") folderCount = await runLocal(rows, k);
+    else if (mode === "hosted") folderCount = await runHosted(rows, k);
+    else folderCount = await runClaude(rows, k);
+    await idbPut(rows);
+    $("groupBy").value = "folder";
+    setProg(null); setStatus("");
+    logLine("Sorted " + rows.length + " items into " + folderCount + " folders. Click \u270e on any folder tab to rename it.");
+    refresh();
+  } catch (e) {
+    setProg(null);
+    if (aiCancelled) setStatus("Cancelled. Items already sorted keep their folders; the rest are unchanged.");
+    else setStatus(e.message, true);
+    await idbPut(rows.filter((r) => r.folder));
+    refresh();
+  } finally {
+    aiBusy = false;
+    $("aiRun").disabled = false; $("aiCancel").hidden = true;
+  }
 }
 
 /* ---------- wiring ---------- */
@@ -930,6 +1490,29 @@ function init() {
   $("csvBtn").addEventListener("click", exportCSV);
   $("jsonBtn").addEventListener("click", exportJSON);
   $("xlsxBtn").addEventListener("click", exportXLSX);
+  $("aiBtn").addEventListener("click", () => {
+    const p = $("aiPanel");
+    p.hidden = !p.hidden;
+    if (!p.hidden) { updateAiPanel(); p.scrollIntoView({ block: "nearest" }); }
+  });
+  const syncMode = () => {
+    if (!SHOEBOX_API) return;
+    if ($("aiModeLocal").checked && $("aiAdvanced").open) $("aiAdvanced").open = false;
+  };
+  $("aiModeLocal").addEventListener("change", syncMode);
+  $("aiModeHosted").addEventListener("change", syncMode);
+  if (!SHOEBOX_API) {
+    $("aiModeHosted").disabled = true;
+    $("aiModeLocal").checked = true;
+    const note = $("aiModeHosted").parentElement.querySelector("span");
+    const b = document.createElement("b");
+    b.textContent = "Smart sort";
+    note.replaceChildren(b, " \u2014 not available on this copy of Shoebox, because whoever deployed it hasn't set up a sorting service. Private sort below works with no setup at all.");
+    $("aiModeHosted").parentElement.style.opacity = ".55";
+  }
+  $("aiRun").addEventListener("click", runAISort);
+  $("aiCancel").addEventListener("click", () => { aiCancelled = true; });
+  $("aiClearFolders").addEventListener("click", clearFolders);
   $("clearBtn").addEventListener("click", async () => {
     if (!confirm("Delete everything Shoebox has stored on this device?")) return;
     items.clear();
@@ -944,6 +1527,9 @@ function init() {
       ? "Your sorted data stays on this device between visits."
       : "Storage isn't available here, so data lasts for this session only.";
     if (idbOK) {
+      metaGet("anthropicKey").then((v) => {
+        if (v) { $("aiKey").value = v; $("aiRemember").checked = true; }
+      });
       const saved = await idbLoadAll();
       if (saved.length) {
         for (const it of saved) items.set(it.id, it);
