@@ -32,7 +32,7 @@ IP_SALT = "change-meklgflkfkl"
 # then paste the printed id below.
 [[kv_namespaces]]
 binding = "RL"
-id = "PASTE_KV_NAMESPACE_ID_HERE"
+id = "cf61fad8ae184ff69b6716120bc21e5c"
 
 # The API key is NOT stored here. Set it as an encrypted secret:
 #   npx wrangler secret put GOOGLE_API_KEY
