@@ -46,12 +46,12 @@ wrangler login
 # 1. storage for the daily quota counters
 wrangler kv namespace create RL          # paste the printed id into wrangler.toml
 
-# 2. edit wrangler.toml: set ALLOWED_ORIGINS to your Pages URL, and IP_SALT to any random string
+# 2. edit wrangler.toml: set ALLOWED_ORIGINS to your Pages URL
 
-# 3. the key, stored encrypted — never in the repo
+# 3. secrets, stored encrypted — never in the repo
 wrangler secret put GOOGLE_API_KEY       # from aistudio.google.com
-#   or, for Claude:
-#   wrangler secret put ANTHROPIC_API_KEY   (and set PROVIDER = "anthropic")
+wrangler secret put IP_SALT              # any long random string
+#   for Claude instead: wrangler secret put ANTHROPIC_API_KEY  (and set PROVIDER = "anthropic")
 
 # 4. ship it
 wrangler deploy
@@ -77,7 +77,7 @@ The Worker is built so a free public endpoint can't become an expensive one:
 - The browser can only send **structured items**, never a prompt. The Worker writes the prompt itself, so nobody can turn your endpoint into free general-purpose Claude access.
 - Per-visitor and global **daily quotas** (`DAILY_IP_LIMIT`, `DAILY_GLOBAL_LIMIT` in `wrangler.toml`). If quota storage is ever missing, the Worker refuses to run rather than leaving the key uncapped.
 - Requests are accepted only from origins you list, item text is stripped of control characters and truncated, oversized bodies are rejected, and upstream error text is never passed through to visitors.
-- Visitor IPs are salted and hashed for counting, never stored in the clear.
+- Visitor IPs are salted and hashed for counting, never stored in the clear. Keep `IP_SALT` a secret rather than a committed variable — a public salt would let someone brute-force which IPs used your service.
 
 **Also set a spend limit in your provider's console** (Google Cloud budget alerts, or the Anthropic console limit). That is your real backstop, and the one control that cannot be bypassed by a bug in this code. Start the limits low — a 50-item batch on a Flash-Lite or Haiku model costs a fraction of a cent, so the defaults (20 runs per visitor, 800 per day) are already generous — and raise them once you see real traffic.
 
@@ -107,7 +107,8 @@ It also works from any static host (Netlify, Cloudflare Pages) or simply double-
 |---|---|
 | `index.html` | The whole app. Deploy to GitHub Pages. |
 | `worker.js` | The sorting service. Deploy to Cloudflare Workers. Optional — without it, Private sort still works. |
-| `wrangler.toml` | Worker config: provider, origins, quotas, model. The API key is *not* here. |
+| `wrangler.toml` | Worker config: provider, origins, quotas, model. Secrets are *not* here. |
+| `.gitignore` | Keeps `.dev.vars` and Wrangler's local state out of the repo. |
 
 ## Roadmap ideas
 

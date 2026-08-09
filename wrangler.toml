@@ -25,8 +25,9 @@ DAILY_GLOBAL_LIMIT = "800"
 # Set this to "0" if batches come back truncated or cost more than expected.
 # THINKING_BUDGET = "0"
 
-# Any random string. Used to salt visitor IPs before hashing so they are never stored in the clear.
-IP_SALT = "change-meklgflkfkl"
+# NOTE: IP_SALT is deliberately NOT here. It salts visitor IPs before hashing, and
+# the IPv4 space is small enough to brute-force if the salt is public. Set it as a
+# secret instead:  npx wrangler secret put IP_SALT
 
 # Create with:  npx wrangler kv namespace create RL
 # then paste the printed id below.

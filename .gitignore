@@ -1,0 +1,15 @@
+# Local secrets for `wrangler dev` — never commit
+.dev.vars
+.dev.vars.*
+
+# Wrangler local state and build cache
+.wrangler/
+dist/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS noise
+.DS_Store
+Thumbs.db
