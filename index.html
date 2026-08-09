@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; connect-src https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://api.anthropic.com https://*.workers.dev; worker-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
-<title>Shoebox — sort your saved stuff</title>
+<title>Bokmark — sort your saved stuff</title>
 <style>
 :root{
   --paper:#F6F5F0; --card:#FFFFFF; --ink:#16181D; --ink2:#5C6066;
@@ -131,7 +131,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
 </head>
 <body>
 <header class="top">
-  <div class="wordmark">shoebox</div>
+  <div class="wordmark">bokmark</div>
   <div class="pill" id="privacyPill"><b>local-first</b> · your items stay on your device</div>
 </header>
 <main>
@@ -228,7 +228,7 @@ details code{font-family:var(--mono);font-size:12px;background:var(--paper);bord
   <details><summary>X (Twitter)</summary><div>
     Two options. <b>Archive:</b> request <code>Settings → Your account → Download an archive of your data</code>, unzip, and drop <code>like.js</code> or <code>tweets.js</code> from the <code>data</code> folder. <b>Bookmarks:</b> X only exposes bookmarks through its paid API — if you (or a developer friend) fetch <code>GET /2/users/:id/bookmarks</code>, drop the JSON response here and it's understood.
   </div></details>
-  <p class="fine">shoebox_ has no accounts and no analytics. Importing, filtering, sorting into tables and exporting all happen in your browser; what you import is stored only on your device. Its security policy lets the page contact just four services, each tied to one feature: <b>cdnjs.cloudflare.com</b> (spreadsheet library, on load), <b>huggingface.co / cdn.jsdelivr.net</b> (the private on-device model, only if you choose Private sort), the <b>Shoebox sorting service</b> (only if you choose Smart sort — it receives item titles, domains and types, forwards them to Claude for folder names, and stores none of it; URLs, people's names, chat names and message bodies are never sent), and <b>api.anthropic.com</b> (only if you supply your own key). No favicons or trackers are fetched, so the sites you saved never learn you're organizing them. Source is one readable HTML file, and the service is one small readable Worker — audit both.</p>
+  <p class="fine">bokmark has no accounts and no analytics. Importing, filtering, sorting into tables and exporting all happen in your browser; what you import is stored only on your device. Its security policy lets the page contact just four services, each tied to one feature: <b>cdnjs.cloudflare.com</b> (spreadsheet library, on load), <b>huggingface.co / cdn.jsdelivr.net</b> (the private on-device model, only if you choose Private sort), the <b>Shoebox sorting service</b> (only if you choose Smart sort — it receives item titles, domains and types, forwards them to Claude for folder names, and stores none of it; URLs, people's names, chat names and message bodies are never sent), and <b>api.anthropic.com</b> (only if you supply your own key). No favicons or trackers are fetched, so the sites you saved never learn you're organizing them. Source is one readable HTML file, and the service is one small readable Worker — audit both.</p>
 </footer>
 
 <script>
